@@ -1,0 +1,70 @@
+COMPILE_TARGET = "debug"
+require "build_support/BuildUtils.rb"
+
+include FileTest
+
+require 'rubygems'
+
+require 'find'
+
+RESULTS_DIR = "results"
+CLR_VERSION = "v3.5"
+
+props = { :archive => "dist" }
+
+desc "Compiles"
+task :all => [:default]
+
+desc "**Default**, compiles and runs tests"
+task :default => [:compile, :removebin] do
+	puts "Build Succeeded"
+end
+
+desc "Displays a list of tasks"
+task :help do
+  taskHash = Hash[*(`rake.cmd -T`.split(/\n/).collect { |l| l.match(/rake (\S+)\s+\#\s(.+)/).to_a }.collect { |l| [l[1], l[2]] }).flatten] 
+ 
+  indent = "                          "
+  
+  puts "rake #{indent}#Runs the 'default' task"
+  
+  taskHash.each_pair do |key, value|
+    if key.nil?  
+      next
+    end
+    puts "rake #{key}#{indent.slice(0, indent.length - key.length)}##{value}"
+  end
+end
+
+desc "Prepares the working directory for a new build"
+task :clean do
+	#TODO: do any other tasks required to clean/prepare the working directory
+	Dir.mkdir props[:archive] unless exists?(props[:archive])
+end
+
+desc "Compiles the app"
+task :compile => [:clean] do
+	MSBuildRunner.compile :compilemode => COMPILE_TARGET, :solutionfile => ARGV[ARGV.length-1], :clrversion => CLR_VERSION
+	
+	outDir = "**/bin/#{COMPILE_TARGET}"
+
+	Dir.glob(File.join(outDir, "*.{dll,pdb}")){|file| 		
+		copy(file, props[:archive]) if File.file?(file)
+	}
+end
+
+desc "Removes all bin and obj folders from the directory structure"
+task :removebin do
+   # Remove all bin and obj Directories
+    RemoveDirMatchingString('bin')
+    RemoveDirMatchingString('obj')
+end
+
+def RemoveDirMatchingString(name)
+	Find.find('./') do |path|
+      if File.basename(path) == name
+        FileUtils.remove_dir(path, true)
+        Find.prune
+      end
+    end
+end
