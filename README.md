@@ -39,7 +39,7 @@ Simply include the bootstrap script file (configure.bat) in your project and add
 
 ### Test it
 
-Run configure.bat on your project to make sure it works for you then run the resulting build.bat to make sure it can compile your code. 
+Run configure.bat on your project to make sure it works for you then run the resulting Build.bat to make sure it can compile your code. 
 
 If you find a bug or Configure does not currently support your project type/tool set please add that capability and send a patch or a pull request.
 
