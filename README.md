@@ -12,26 +12,26 @@ The intent of this project is to automagically deduce the build requirements fro
 
 ## Methodology
 
-Configure examines 
+Configure examines the following in order to create the necessary ecosystem to build the project.
 
-1) the available build and compile tools (such as Ruby, MSBuild, etc), and 
-2) the source code under the directory that contains it
+1. the available build and compile tools (such as Ruby, MSBuild, etc), and 
+2. the source code under the directory that contains it
 
-in order to create the necessary ecosystem to build the project. Preference will be given to tools such as Ruby and Perl that have the ability to automatically download and install standard modules that can be used in the build infrastructure.
+Preference will be given to tools such as Ruby and Perl that have the ability to automatically download and install standard modules that can be used in the build infrastructure.
 
 The goal is a tool that
 
-1) can run on any Windows system from a command prompt or double clicked file
-2) uses a non-compiled format that can be examined by those concerned with security
-3) has a small footprint in the target source tree (a single boostrap file)
-4) can rebuild its own ecosystem if pieces are removed
-5) is easy for interested parties to expand to support new tools and environments
+1. can run on any Windows system from a command prompt or double clicked file
+2. uses a non-compiled format that can be examined by those concerned with security
+3. has a small footprint in the target source tree (a single boostrap file)
+4. can rebuild its own ecosystem if pieces are removed
+5. is easy for interested parties to expand to support new tools and environments
 
 With those goals in mind, Configure is written in JScript because
 
-1) its execution engine (CScript) has come with all Windows versions since Windows 98 (goals 1 and 2)
-2) it has access to a broad range of components built into Windows (goals 3 and 4)
-3) it is a C-like language (goal 5)
+1. its execution engine (CScript) has come with all Windows versions since Windows 98 (goals 1 and 2)
+2. it has access to a broad range of components built into Windows (goals 3 and 4)
+3. it is a C-like language (goal 5)
 
 ## Quickstart
 
