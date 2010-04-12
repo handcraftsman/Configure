@@ -81,6 +81,11 @@ function CheckForCsc()
 
 function CheckForMsbuild()
 {
+	msbuild = CheckFor("MSBuild","%WinDir%\\Microsoft.NET\\Framework\\v3.5\\msbuild.exe","/nologo /ver");
+	if (msbuild.Path != "")
+	{
+		return;
+	}
 	msbuild = CheckFor("MSBuild","%WinDir%\\Microsoft.NET\\Framework\\v2.0.50727\\msbuild.exe","/nologo /ver");
 }
 
@@ -195,13 +200,40 @@ function Configure()
 	{
 		return ConfigureRuby();
 	}
-	else
+	if (msbuild.Path != "")
 	{
-		WScript.StdOut.WriteLine("Ruby not found... Configure currently only supports building with Ruby. Please submit a patch. Cannot continue.");
-		return 1;
+		return ConfigureMSBuild();
 	}
 	
+	WScript.StdOut.WriteLine("MSBuild not found... Configure currently only supports building with MSBuild or Ruby. Please submit a patch. Cannot continue.");
+	return 1;
+	
 	return 0;
+}
+
+function ConfigureMSBuild()
+{
+	WScript.StdOut.WriteLine("configuring for MSBuild ...");
+	WScript.StdOut.WriteLine(msbuild.Path);
+
+	CreateMSBuildBuildFile();
+	return 0;
+}
+
+function CreateMSBuildBuildFile()
+{
+	var ForWriting= 2;
+	var AsAscii = 0;
+	var file = fso.OpenTextFile(scriptPath+"Build.bat", ForWriting, true, AsAscii);
+	file.WriteLine("@ECHO OFF");
+	file.WriteLine("IF NOT EXIST dist mkdir dist");
+	file.Write(msbuild.Path+" \""+sln+"\" /nologo /v:m /property:BuildInParallel=false /property:Configuration=debug /property:OutputPath=\""+scriptPath+"dist\" /t:Rebuild");
+	if (msbuild.Version.match("3.5"))
+	{
+		file.Write(" /maxcpucount");
+	}
+	file.WriteLine();
+	file.Close();
 }
 
 function ConfigureRuby()
