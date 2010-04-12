@@ -12,6 +12,7 @@ var rubyRakeFile = "RakeFile";
 var rubyRakeFileUrl = configureRawFileUrl+rubyRakeFile;
 var buildOutputDirName = "dist";
 var envProgramFilesPath = "";
+var scriptPath = "";
 
 // -------- program level variables
 // objects
@@ -19,10 +20,13 @@ var fso = WScript.CreateObject("Scripting.FileSystemObject");
 
 // project/solution file
 var sln = "";
-var scriptPath = "";
+var java = "";
 
 // build and test tools
 var csc = "";
+var jruby = "";
+var jrubygem = "";
+var jrubyrake = "";
 var msbuild = "";
 var nant = "";
 var nunit = "";
@@ -101,6 +105,40 @@ function CheckForExists(toolName, toolExe)
 	return toolInfo;
 }
 
+function CheckForJavaFiles()
+{
+	WScript.StdOut.Write("checking for .java source files... ");
+	var path = SearchSubdirectoryForFile(".java$");
+	if (path != "")
+	{
+		path = GetRelativePath(path);
+		WScript.StdOut.WriteLine("yes "+path);
+		return path;
+	}
+	WScript.StdOut.WriteLine("no");
+	return "";
+}
+
+function CheckForJRuby()
+{
+	jruby = CheckFor("JRuby","jruby.exe","--version");
+	if (jruby != "")
+	{
+		CheckForJRubyGem();
+		CheckForJRubyRake();
+	}
+}
+
+function CheckForJRubyGem()
+{
+	jrubygem = CheckFor("JRuby Gem",jruby.Path+" -S gem","--version");
+}
+
+function CheckForJRubyRake()
+{
+	jrubyrake = CheckFor("JRuby Rake",jruby.Path+" -S rake","--version");
+}
+
 function CheckForMsbuild()
 {
 	msbuild = CheckFor("MSBuild","%WinDir%\\Microsoft.NET\\Framework\\v3.5\\msbuild.exe","/nologo /ver");
@@ -138,17 +176,17 @@ function CheckForRuby()
 
 function CheckForRubyGem()
 {
-	rubygem = CheckFor("Ruby Gem","gem.bat","--version");
+	rubygem = CheckFor("Ruby Gem",ruby.Path+" -S gem","--version");
 }
 
 function CheckForRubyRake()
 {
-	rubyrake = CheckFor("Ruby Rake","rake.bat","--version");
+	rubyrake = CheckFor("Ruby Rake",ruby.Path+" -S rake","--version");
 }
 
 function CheckForSolutionFile()
 {
-	WScript.StdOut.Write("checking for sln... ");
+	WScript.StdOut.Write("checking for VisualStudio .sln file... ");
 	var path = SearchSubdirectoryForFile(".sln$");
 	if (path != "")
 	{
@@ -217,30 +255,33 @@ function Configure()
 	WScript.StdOut.WriteLine("");
 	WScript.StdOut.WriteLine("configuring...");
 
-	if (sln == "")
+	if (sln != "")
 	{
-		WScript.StdOut.WriteLine("solution file not found... cannot continue.");
-		return 1;
+		return ConfigureSolutionBuild();
+	}
+	if (java != "")
+	{
+		return ConfigureJavaBuild();
 	}
 	
-	if (ruby.Path != "")
-	{
-		return ConfigureRuby();
-	}
-	if (msbuild.Path != "")
-	{
-		return ConfigureMSBuild();
-	}
-	if (vcsexpress.Path != "")
-	{
-		return ConfigureVCSExpress();
-	}
+	WScript.StdOut.WriteLine("found no known solution or source file types... cannot continue.");
+	return 1;
+}
+
+function ConfigureJavaBuild()
+{
+	WScript.StdOut.WriteLine("configuring java build");
+
+//	if (jruby.Path != "")
+//	{
+//		return ConfigureJRuby();
+//	}
+//  todo	
 	
 	WScript.StdOut.WriteLine("Configure cannot create a build environment from the available tools. Please submit a patch.");
 	return 1;
-	
-	return 0;
 }
+
 
 function ConfigureMSBuild()
 {
@@ -300,6 +341,27 @@ function CreateRubyBuildFile()
 	file.WriteLine("IF (%1) == () set params=default");
 	file.WriteLine(rubyrake.Path+" %params% \""+sln+"\"");
 	file.Close();
+}
+
+function ConfigureSolutionBuild()
+{
+	WScript.StdOut.WriteLine("configuring build for solution file "+sln);
+
+	if (ruby.Path != "")
+	{
+		return ConfigureRuby();
+	}
+	if (msbuild.Path != "")
+	{
+		return ConfigureMSBuild();
+	}
+	if (vcsexpress.Path != "")
+	{
+		return ConfigureVCSExpress();
+	}
+	
+	WScript.StdOut.WriteLine("Configure cannot create a build environment from the available tools. Please submit a patch.");
+	return 1;
 }
 
 function ConfigureVCSExpress()
@@ -489,9 +551,11 @@ function Scan()
 
 	// project/solution
 	sln = CheckForSolutionFile();
+	java = CheckForJavaFiles();
 	
 	// build & compile tools (alphabetical)
 	CheckForCsc();
+	CheckForJRuby();
 	CheckForMsbuild();
 	CheckForNant();
 	CheckForNunit();
