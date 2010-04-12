@@ -10,6 +10,8 @@ var rubyBuildUtilsFile = "BuildUtils.rb";
 var rubyBuildUtilsUrl = configureRawFileUrl+rubyBuildUtilsFile;
 var rubyRakeFile = "RakeFile";
 var rubyRakeFileUrl = configureRawFileUrl+rubyRakeFile;
+var buildOutputDirName = "dist";
+var envProgramFilesPath = "";
 
 // -------- program level variables
 // objects
@@ -28,15 +30,14 @@ var powershell = "";
 var ruby = "";
 var rubygem = "";
 var rubyrake= "";
+var vcsexpress = "";
 
 // -------- main
 Main();
 
 function Main()
 {
-	scriptPath = WScript.ScriptFullName;
-	scriptPath = scriptPath.substr(0, 1 + scriptPath.lastIndexOf("\\"));
-	WScript.StdOut.WriteLine("script path: "+scriptPath);
+	GetEnvironmentVariables();
 	
 	try
 	{
@@ -77,6 +78,27 @@ function CheckFor(toolName, toolExe, versionRequest)
 function CheckForCsc()
 {
 	csc = CheckFor("csc","%WinDir%\\Microsoft.NET\\Framework\\v2.0.50727\\csc.exe","/help");
+}
+
+function CheckForExists(toolName, toolExe)
+{
+	WScript.StdOut.Write("checking for "+toolName+"... ");
+	
+	var toolInfo = new Object();
+	toolInfo.Path = "";
+	toolInfo.Version = "";
+	toolInfo.InSubdirectory = false;
+
+	if (fso.FileExists(toolExe))
+	{
+		WScript.StdOut.WriteLine("yes "+toolInfo.Version);
+		toolInfo.Path = toolExe;
+	}
+	else
+	{
+		WScript.StdOut.WriteLine("no");
+	}
+	return toolInfo;
 }
 
 function CheckForMsbuild()
@@ -136,6 +158,11 @@ function CheckForSolutionFile()
 	}
 	WScript.StdOut.WriteLine("no");
 	return "";
+}
+
+function CheckForVisualCsharpExpressEdition()
+{
+	vcsexpress = CheckForExists("Visual C# Express Edition",envProgramFilesPath+"\\Microsoft Visual Studio 9.0\\Common7\\IDE\\VCSExpress.exe");
 }
 
 function CheckInPath(toolName, toolExe, versionRequest)
@@ -204,8 +231,12 @@ function Configure()
 	{
 		return ConfigureMSBuild();
 	}
+	if (vcsexpress.Path != "")
+	{
+		return ConfigureVCSExpress();
+	}
 	
-	WScript.StdOut.WriteLine("MSBuild not found... Configure currently only supports building with MSBuild or Ruby. Please submit a patch. Cannot continue.");
+	WScript.StdOut.WriteLine("Configure cannot create a build environment from the available tools. Please submit a patch.");
 	return 1;
 	
 	return 0;
@@ -214,7 +245,6 @@ function Configure()
 function ConfigureMSBuild()
 {
 	WScript.StdOut.WriteLine("configuring for MSBuild ...");
-	WScript.StdOut.WriteLine(msbuild.Path);
 
 	CreateMSBuildBuildFile();
 	return 0;
@@ -226,8 +256,8 @@ function CreateMSBuildBuildFile()
 	var AsAscii = 0;
 	var file = fso.OpenTextFile(scriptPath+"Build.bat", ForWriting, true, AsAscii);
 	file.WriteLine("@ECHO OFF");
-	file.WriteLine("IF NOT EXIST dist mkdir dist");
-	file.Write(msbuild.Path+" \""+sln+"\" /nologo /v:m /property:BuildInParallel=false /property:Configuration=debug /property:OutputPath=\""+scriptPath+"dist\" /t:Rebuild");
+	file.WriteLine("IF NOT EXIST "+buildOutputDirName +" mkdir "+buildOutputDirName);
+	file.Write(msbuild.Path+" \""+sln+"\" /nologo /v:m /property:BuildInParallel=false /property:Configuration=debug /property:OutputPath=\""+scriptPath+buildOutputDirName+"\" /t:Rebuild");
 	if (msbuild.Version.match("3.5"))
 	{
 		file.Write(" /maxcpucount");
@@ -269,6 +299,28 @@ function CreateRubyBuildFile()
 	file.WriteLine("set params=%*");
 	file.WriteLine("IF (%1) == () set params=default");
 	file.WriteLine(rubyrake.Path+" %params% \""+sln+"\"");
+	file.Close();
+}
+
+function ConfigureVCSExpress()
+{
+	WScript.StdOut.WriteLine("configuring for Visual C# Express ...");
+
+	CreateVCSExpressBuildFile();
+	return 0;
+}
+
+function CreateVCSExpressBuildFile()
+{
+	var ForWriting= 2;
+	var AsAscii = 0;
+	var file = fso.OpenTextFile(scriptPath+"Build.bat", ForWriting, true, AsAscii);
+	file.WriteLine("@ECHO OFF");
+	file.WriteLine("IF NOT EXIST "+buildOutputDirName +" mkdir "+buildOutputDirName);
+	file.WriteLine("for /R \""+slnDirectory+"\" %%f in (bin\\Debug\\*.dll,bin\\Debug\\*.pdb) do del %%f");
+	file.WriteLine("\""+vcsexpress.Path+"\" \""+sln+"\" /build Debug");
+	var slnDirectory = GetPath(scriptPath + sln);
+	file.WriteLine("for /R \""+slnDirectory+"\" %%f in (bin\\Debug\\*.dll,bin\\Debug\\*.pdb) do copy %%f \""+scriptPath+""+buildOutputDirName+"\"");
 	file.Close();
 }
 
@@ -400,6 +452,23 @@ function ExecuteScript(scriptPath, scriptParameters)
 	}
 }
 
+function GetEnvironmentVariables()
+{
+	scriptPath = GetPath(WScript.ScriptFullName);
+	WScript.StdOut.WriteLine("script path: "+scriptPath);
+	envProgramFilesPath = Shell().Environment("Process")("ProgramFiles");
+	if (envProgramFilesPath == "")
+	{
+		envProgramFilesPath = Shell().RegRead("HKLM\\SOFTWARE\\Microsoft\\Windows\\CurrentVersion\\ProgramFilesDir");
+	}
+	WScript.StdOut.WriteLine("program files path: "+envProgramFilesPath);
+}
+
+function GetPath(filePath)
+{
+	return filePath.substr(0, 1 + filePath.lastIndexOf("\\"))
+}
+
 function GetRelativePath(absolutePath)
 {
 	var path = absolutePath.substr(scriptPath.length, absolutePath.length);
@@ -428,6 +497,7 @@ function Scan()
 	CheckForNunit();
 	CheckForPowershell();
 	CheckForRuby();
+	CheckForVisualCsharpExpressEdition();
 }
 
 function SearchFilesForFile(items, fileName) 
