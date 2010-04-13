@@ -24,6 +24,7 @@ var java = "";
 
 // build and test tools
 var csc = "";
+var javac = "";
 var jruby = "";
 var jrubygem = "";
 var jrubyrake = "";
@@ -108,7 +109,7 @@ function CheckForExists(toolName, toolExe)
 function CheckForJavaFiles()
 {
 	WScript.StdOut.Write("checking for .java source files... ");
-	var path = SearchSubdirectoryForFile(".java$");
+	var path = SearchSubdirectoryForFile(".", ".java$");
 	if (path != "")
 	{
 		path = GetRelativePath(path);
@@ -117,6 +118,27 @@ function CheckForJavaFiles()
 	}
 	WScript.StdOut.WriteLine("no");
 	return "";
+}
+
+function CheckForJavac()
+{
+	var toolInfo = new Object();
+	toolInfo.Path = "";
+	toolInfo.Version = "";
+	toolInfo.InSubdirectory = false;
+
+	WScript.StdOut.Write("checking for javac.exe... ");
+	var path = SearchSubdirectoryForFile(envProgramFilesPath+"\\java\\", "javac.exe$");
+	if (path != "")
+	{
+		toolInfo = CheckInPath("javac.exe", "\""+path+"\"", "-version");
+		WScript.StdOut.WriteLine("yes "+toolInfo.Version);
+	}
+	else
+	{
+		WScript.StdOut.WriteLine("no");
+	}
+	javac = toolInfo;
 }
 
 function CheckForJRuby()
@@ -187,7 +209,7 @@ function CheckForRubyRake()
 function CheckForSolutionFile()
 {
 	WScript.StdOut.Write("checking for VisualStudio .sln file... ");
-	var path = SearchSubdirectoryForFile(".sln$");
+	var path = SearchSubdirectoryForFile(".",".sln$");
 	if (path != "")
 	{
 		path = GetRelativePath(path);
@@ -217,6 +239,14 @@ function CheckInPath(toolName, toolExe, versionRequest)
 		{
 			shell.StdIn.Close()
 			var output = shell.StdOut.ReadLine();
+			if (output == "")
+			{
+				output = shell.StdOut.ReadAll();
+				if (output == "")
+				{
+					output = shell.StdErr.ReadLine();
+				}
+			}
 			var version = output.replace(/^\s+/g, '').replace(/\s+$/g, '');
 			result.Version = version;
 			result.Path = toolExe;
@@ -236,7 +266,7 @@ function CheckInSubdirectory(toolName, toolExe, versionRequest)
 	result.Version = "";
 	try
 	{
-		result.Path = SearchSubdirectoryForFile(toolExe);
+		result.Path = SearchSubdirectoryForFile(".",toolExe);
 		if (result.Path != "")
 		{
 			return CheckInPath(toolName, GetRelativePath(result.Path), versionRequest);
@@ -272,16 +302,21 @@ function ConfigureJavaBuild()
 {
 	WScript.StdOut.WriteLine("configuring java build");
 
-//	if (jruby.Path != "")
-//	{
-//		return ConfigureJRuby();
-//	}
-//  todo	
+	if (javac.Path != "")
+	{
+		return ConfigureJavacBuild();
+	}
 	
 	WScript.StdOut.WriteLine("Configure cannot create a build environment from the available tools. Please submit a patch.");
 	return 1;
 }
 
+function ConfigureJavacBuild()
+{
+	WScript.StdOut.WriteLine("configuring for javac ...");
+	CreateJavacBuildFile();
+	return 0;
+}
 
 function ConfigureMSBuild()
 {
@@ -289,22 +324,6 @@ function ConfigureMSBuild()
 
 	CreateMSBuildBuildFile();
 	return 0;
-}
-
-function CreateMSBuildBuildFile()
-{
-	var ForWriting= 2;
-	var AsAscii = 0;
-	var file = fso.OpenTextFile(scriptPath+"Build.bat", ForWriting, true, AsAscii);
-	file.WriteLine("@ECHO OFF");
-	file.WriteLine("IF NOT EXIST "+buildOutputDirName +" mkdir "+buildOutputDirName);
-	file.Write(msbuild.Path+" \""+sln+"\" /nologo /v:m /property:BuildInParallel=false /property:Configuration=debug /property:OutputPath=\""+scriptPath+buildOutputDirName+"\" /t:Rebuild");
-	if (msbuild.Version.match("3.5"))
-	{
-		file.Write(" /maxcpucount");
-	}
-	file.WriteLine();
-	file.Close();
 }
 
 function ConfigureRuby()
@@ -329,18 +348,6 @@ function ConfigureRuby()
 	}
 
 	return CreateRubyBuildFile();
-}
-
-function CreateRubyBuildFile()
-{
-	var ForWriting= 2;
-	var AsAscii = 0;
-	var file = fso.OpenTextFile(scriptPath+"Build.bat", ForWriting, true, AsAscii);
-	file.WriteLine("@ECHO OFF");
-	file.WriteLine("set params=%*");
-	file.WriteLine("IF (%1) == () set params=default");
-	file.WriteLine(rubyrake.Path+" %params% \""+sln+"\"");
-	file.Close();
 }
 
 function ConfigureSolutionBuild()
@@ -370,6 +377,45 @@ function ConfigureVCSExpress()
 
 	CreateVCSExpressBuildFile();
 	return 0;
+}
+
+function CreateJavacBuildFile()
+{
+	var ForWriting= 2;
+	var AsAscii = 0;
+	var file = fso.OpenTextFile(scriptPath+"Build.bat", ForWriting, true, AsAscii);
+	file.WriteLine("@ECHO OFF");
+	file.WriteLine("IF NOT EXIST "+buildOutputDirName +" mkdir "+buildOutputDirName);
+	file.WriteLine(javac.Path+" -sourcepath . -d \""+scriptPath+buildOutputDirName+"\" *.java");
+	file.Close();	
+}
+
+function CreateMSBuildBuildFile()
+{
+	var ForWriting= 2;
+	var AsAscii = 0;
+	var file = fso.OpenTextFile(scriptPath+"Build.bat", ForWriting, true, AsAscii);
+	file.WriteLine("@ECHO OFF");
+	file.WriteLine("IF NOT EXIST "+buildOutputDirName +" mkdir "+buildOutputDirName);
+	file.Write(msbuild.Path+" \""+sln+"\" /nologo /v:m /property:BuildInParallel=false /property:Configuration=debug /property:OutputPath=\""+scriptPath+buildOutputDirName+"\" /t:Rebuild");
+	if (msbuild.Version.match("3.5"))
+	{
+		file.Write(" /maxcpucount");
+	}
+	file.WriteLine();
+	file.Close();
+}
+
+function CreateRubyBuildFile()
+{
+	var ForWriting= 2;
+	var AsAscii = 0;
+	var file = fso.OpenTextFile(scriptPath+"Build.bat", ForWriting, true, AsAscii);
+	file.WriteLine("@ECHO OFF");
+	file.WriteLine("set params=%*");
+	file.WriteLine("IF (%1) == () set params=default");
+	file.WriteLine(rubyrake.Path+" %params% \""+sln+"\"");
+	file.Close();
 }
 
 function CreateVCSExpressBuildFile()
@@ -555,6 +601,7 @@ function Scan()
 	
 	// build & compile tools (alphabetical)
 	CheckForCsc();
+	CheckForJavac();
 	CheckForJRuby();
 	CheckForMsbuild();
 	CheckForNant();
@@ -604,9 +651,9 @@ function SearchDirectoryForFile(dir, fileName)
 	return "";
 }
 
-function SearchSubdirectoryForFile(fileName)
+function SearchSubdirectoryForFile(startPath, fileName)
 {
-	var dir = fso.GetFolder(".");
+	var dir = fso.GetFolder(startPath);
 	return SearchDirectoryForFile(dir, fileName);
 }
 
