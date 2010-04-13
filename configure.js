@@ -266,7 +266,7 @@ function CheckInSubdirectory(toolName, toolExe, versionRequest)
 	result.Version = "";
 	try
 	{
-		result.Path = SearchSubdirectoryForFile(".",toolExe);
+		result.Path = SearchSubdirectoryForFile(".", toolExe);
 		if (result.Path != "")
 		{
 			return CheckInPath(toolName, GetRelativePath(result.Path), versionRequest);
@@ -274,7 +274,7 @@ function CheckInSubdirectory(toolName, toolExe, versionRequest)
 	}
 	catch(error)
 	{
-		WScript.Echo("error: "+error.description);
+		WScript.StdOut.Write(" error: "+error.description+" ");
 	}
 	return result;
 
@@ -653,8 +653,16 @@ function SearchDirectoryForFile(dir, fileName)
 
 function SearchSubdirectoryForFile(startPath, fileName)
 {
-	var dir = fso.GetFolder(startPath);
-	return SearchDirectoryForFile(dir, fileName);
+	try
+	{
+		var dir = fso.GetFolder(startPath);
+		return SearchDirectoryForFile(dir, fileName);
+	}
+	catch(error)
+	{
+		WScript.StdOut.Write(" error: "+error.description+" ");
+		return "";
+	}
 }
 
 function Shell()
