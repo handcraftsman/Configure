@@ -48,7 +48,7 @@ task :compile => [:clean] do
 	
 	outDir = "**/bin/#{COMPILE_TARGET}"
 
-	Dir.glob(File.join(outDir, "*.{dll,pdb}")){|file| 		
+	Dir.glob(File.join(outDir, "*.{dll,pdb,exe}")){|file| 		
 		copy(file, props[:archive]) if File.file?(file)
 	}
 end
