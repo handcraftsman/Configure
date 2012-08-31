@@ -1,4 +1,5 @@
 require 'erb'
+include Rake::DSL
 
 class NUnitRunner
 	include FileTest
