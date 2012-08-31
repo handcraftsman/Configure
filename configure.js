@@ -163,6 +163,11 @@ function CheckForJRubyRake()
 
 function CheckForMsbuild()
 {
+	msbuild = CheckFor("MSBuild","%WinDir%\\Microsoft.NET\\Framework\\v4.0.30319\\msbuild.exe","/nologo /ver");
+	if (msbuild.Path != "")
+	{
+		return;
+	}
 	msbuild = CheckFor("MSBuild","%WinDir%\\Microsoft.NET\\Framework\\v3.5\\msbuild.exe","/nologo /ver");
 	if (msbuild.Path != "")
 	{
@@ -354,10 +359,10 @@ function ConfigureSolutionBuild()
 {
 	WScript.StdOut.WriteLine("configuring build for solution file "+sln);
 
-	if (ruby.Path != "")
-	{
-		return ConfigureRuby();
-	}
+//	if (ruby.Path != "")
+//	{
+//		return ConfigureRuby();
+//	}
 	if (msbuild.Path != "")
 	{
 		return ConfigureMSBuild();
@@ -398,11 +403,12 @@ function CreateMSBuildBuildFile()
 	file.WriteLine("@ECHO OFF");
 	file.WriteLine("IF NOT EXIST "+buildOutputDirName +" mkdir "+buildOutputDirName);
 	file.Write(msbuild.Path+" \""+sln+"\" /nologo /v:m /property:BuildInParallel=false /property:Configuration=debug /property:OutputPath=\""+scriptPath+buildOutputDirName+"\" /t:Rebuild");
-	if (msbuild.Version.match("3.5"))
+	if (!msbuild.Version.match("2.0"))
 	{
 		file.Write(" /maxcpucount");
 	}
 	file.WriteLine();
+	file.WriteLine("@pause");
 	file.Close();
 }
 
